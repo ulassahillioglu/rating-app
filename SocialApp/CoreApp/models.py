@@ -71,7 +71,7 @@ class UserProfile(models.Model):
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
             max_file_size_validator,  # Limit file size to 2 MB
         ],
-        default='images/profile-pics/keyd.jpg'
+        default='images/profile-pics/default.jpg'
     )
     
     otp = models.CharField(max_length=6)
@@ -79,7 +79,7 @@ class UserProfile(models.Model):
     max_otp_try = models.PositiveIntegerField(default=settings.MAX_OTP_TRY)
     otp_max_out = models.DateTimeField(blank=True,null=True)
     is_active = models.BooleanField(default=False)
-    
+    score = models.PositiveIntegerField(null=True,blank=True) 
     USERNAME_FIELD = "phone_number"
 
     # objects = UserProfileManager()

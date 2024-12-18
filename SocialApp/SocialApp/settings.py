@@ -1,3 +1,4 @@
+
 """
 Django settings for SocialApp project.
 
@@ -31,7 +32,7 @@ SMS_API_KEY = env('SMS_API_KEY')
 SECRET_KEY = 'django-insecure-qm#uvdpbjin(%)pe&owqvjy(4b8d078e4kv*91v=3%0-3vhe3g'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_HOST_USER = 'johannmcrollin@gmail.com'
@@ -40,7 +41,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['185.87.253.121','socialrate.net','localhost','ubasoft.net']
 MAX_OTP_TRY = 3
 
 # Application definition
@@ -52,13 +53,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'CoreApp',
     'rest_framework',
+    'CoreApp',
     'rest_framework.authtoken',
     'UserAuth',
     'corsheaders',
     'drf_yasg',
-    'rest_framework_simplejwt'
+    'rest_framework_simplejwt',
+    'csp'
     
 ]
 
@@ -98,11 +100,23 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'middleware.otprestrict.RestrictOTPEndpointMiddleware'
+    'middleware.otprestrict.RestrictOTPEndpointMiddleware',
+    'middleware.iprestrict.BlockExactApiPathMiddleware',
+    'csp.middleware.CSPMiddleware',
 ]
 
 ROOT_URLCONF = 'SocialApp.urls'
+
+
+CSP_INCLUDE_NONCE_IN = ['script-src']
+CSP_CONNECT_SRC = ("'self'", "https://socialrate.net", "https://ubasoft.net")  # Allow both frontend and backend
+CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "'unsafe-inline'")
+CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com")  # Allow font loading
+CSP_SCRIPT_SRC = ("'self'", "https://ubasoft.net", "https://socialrate.net")  # Allow frontend and backend scripts
+
+
 
 TEMPLATES = [
     {
@@ -128,8 +142,12 @@ WSGI_APPLICATION = 'SocialApp.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'socialrcore',
+	'USER': 'admin',
+	'PASSWORD': 'SR*0xx',
+	'HOST':'localhost',
+	'PORT':'5432'
     }
 }
 
@@ -186,12 +204,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOWED_ORIGINS = [
    "http://localhost:4200",
+   "https://ubasoft.net",
+   "http://ubasoft.net"
 ]
 
 CORS_ALLOW_HEADERS = [
     'Access-Control-Allow-Origin',
     'Authorization',  # Authorization header'ına izin ver
     'Content-Type',
+    'X-Requested-With',
+    'Accept'
 ]
 
 CORS_ALLOW_METHODS = [
@@ -202,3 +224,7 @@ CORS_ALLOW_METHODS = [
     "DELETE",
     "OPTIONS",
 ]
+
+X_FRAME_OPTIONS = 'DENY'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+
