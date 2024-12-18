@@ -209,11 +209,13 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOW_HEADERS = [
+
     'Access-Control-Allow-Origin',
     'Authorization',  # Authorization header'ına izin ver
     'Content-Type',
     'X-Requested-With',
     'Accept'
+
 ]
 
 CORS_ALLOW_METHODS = [
