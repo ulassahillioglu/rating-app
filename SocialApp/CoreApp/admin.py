@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.shortcuts import redirect
+from django.urls import path, reverse
 from django.utils.html import format_html
 from .models import Report, UserProfile, Category, Comment, Follow,UserInquiry
 
@@ -269,13 +271,15 @@ class InquiryAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at',)
     ordering = ('-created_at',)
 
+from django.contrib import admin
+from django.db import models
+
 @admin.register(Report)
 class ReportAdmin(admin.ModelAdmin):
     """
     Admin customization for the Report model.
     """
     
-    # List of fields to display in the list view
     list_display = (
         'id',
         'user_reporting',
@@ -289,39 +293,34 @@ class ReportAdmin(admin.ModelAdmin):
         'is_reviewed',
     )
 
-    # Fields that can be used for searching in the admin panel
     search_fields = (
         'user_reporting__username',
         'reported_comment__content',
-        'reported_comment__user_profile__username',  # Search by profile username
+        'reported_comment__user_profile__username',
         'reported_profile__user__username',
         'reason',
     )
 
-    # Fields that can be used for filtering in the list view
     list_filter = (
         'report_type',
         'is_reviewed',
         'created_at',
     )
 
-    # Fields to show as read-only in the detail view
     readonly_fields = (
         'created_at',
-        'reported_comment_content',  # Add this field to the readonly section
-        'reported_comment_profile',  # Add this field to the readonly section
+        'reported_comment_content',
+        'reported_comment_profile',
         'commented_on_profile'
     )
 
-    # Display the content of the reported comment
     def reported_comment_content(self, obj):
         if obj.reported_comment:
-            return f"{obj.reported_comment.content[:50]}..."  # Show the full content of the comment
+            return f"{obj.reported_comment.content[:50]}..."
         return "N/A"
 
     reported_comment_content.short_description = "Rapor edilen yorum içeriği"
 
-    # Display the profile of the user who made the comment
     def reported_comment_profile(self, obj):
         if obj.reported_comment and obj.reported_comment.user_profile:
             return f"Profile of {obj.reported_comment.user_profile.user.username}"
@@ -335,26 +334,26 @@ class ReportAdmin(admin.ModelAdmin):
         return "N/A"
 
     reported_profile.short_description = "Rapor edilen Profil"
-    
+
     def commented_on_profile(self, obj):
         if obj.reported_comment and obj.reported_comment.profile_commented_on:
             return f"Profile of {obj.reported_comment.profile_commented_on.user.username}"
         return "N/A"
 
     commented_on_profile.short_description = "Yorumun yapıldığı profil"
-    # Customize the detail view to show the comment content and the comment's profile
+
     def report_type_display(self, obj):
         return obj.get_report_type_display()
 
     report_type_display.short_description = "Rapor Türü"
-    
+
     fieldsets = (
         ("Rapor Bilgileri", {
             'fields': (
                 'user_reporting',
                 'report_type',
-                'reported_comment_content',  # Add this field to display in the detail view
-                'reported_comment_profile',  # Show profile of the user who made the comment
+                'reported_comment_content',
+                'reported_comment_profile',
                 'reported_profile',
                 'reason',
                 'created_at',
@@ -363,14 +362,87 @@ class ReportAdmin(admin.ModelAdmin):
         }),
     )
 
-    # Custom actions to mark reports as reviewed
-    actions = ['mark_as_reviewed']
+    actions = ['mark_as_reviewed', 'delete_reported_comment']
 
     def mark_as_reviewed(self, request, queryset):
-        """Mark selected reports as reviewed."""
         updated = queryset.update(is_reviewed=True)
         self.message_user(request, f"{updated} report(s) marked as reviewed.")
     
     mark_as_reviewed.short_description = "İncelendi olarak işaretle"
+
+    def delete_reported_comment(self, request, queryset):
+        """Delete the reported comment associated with the selected reports."""
+        for report in queryset:
+            if report.reported_comment:
+                report.reported_comment.delete()
+                self.message_user(request, f"Comment from report ID {report.id} deleted.")
+        return None
+    
+    delete_reported_comment.short_description = "Rapor edilen yorumu sil"
+
+    def delete_reported_comment_action(self, request, object_id):
+        """
+        Custom admin action to delete the reported comment associated with a report.
+        """
+        try:
+            # Fetch the report object
+            report = self.get_object(request, object_id)
+            if not report:
+                self.message_user(request, "Report not found.", level="error")
+                return redirect('admin:%s_%s_changelist' % (self.model._meta.app_label, self.model._meta.model_name))
+
+            # Delete the reported comment if it exists
+            if report.reported_comment:
+                report.reported_comment.delete()
+                self.message_user(request, "Reported comment has been successfully deleted.")
+            else:
+                self.message_user(request, "No reported comment found to delete.", level="error")
+
+        except Exception as e:
+            self.message_user(request, f"An error occurred: {e}", level="error")
+
+        # Redirect back to the change view of the report
+        return redirect('admin:%s_%s_change' % (self.model._meta.app_label, self.model._meta.model_name), object_id=object_id)
+
+
+    def get_urls(self):
+        """
+        Add a custom URL for deleting a reported comment.
+        """
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:object_id>/delete-comment/',
+                self.admin_site.admin_view(self.delete_reported_comment_action),
+                name='delete_reported_comment',
+            ),
+        ]
+        return custom_urls + urls
+
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        """
+        Override the change view to add a custom delete button for the reported comment.
+        """
+        extra_context = extra_context or {}
+        try:
+            # Fetch the report object
+            report = self.get_object(request, object_id)
+
+            # If the report and the reported comment exist, add a delete button
+            if report and report.reported_comment:
+                delete_url = reverse('admin:delete_reported_comment', args=[object_id])
+                extra_context['delete_comment_button'] = format_html(
+                    '<a class="button" href="{}">Delete Reported Comment</a>', delete_url
+                )
+            else:
+                extra_context['delete_comment_button'] = None
+
+        except Exception as e:
+            self.message_user(request, f"An error occurred: {e}", level="error")
+
+        return super().change_view(request, object_id, form_url, extra_context)
+
+
 
 

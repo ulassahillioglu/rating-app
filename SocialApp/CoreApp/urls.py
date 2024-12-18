@@ -14,6 +14,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('latest-comments/', LatestCommentsView.as_view(), name='latest-comments'),
     path('comments/create', CommentCreateView.as_view(), name='create_comment'),
+    path('comments/<int:pk>/delete_comment/', CommentViewSet.as_view({'delete': 'delete_comment'}), name='delete_comment'),
     path('profiles/<str:username>/follow/', FollowToggleView.as_view(), name='follow-toggle'),
     path('profiles/search/', UserProfileSearchView.as_view(), name='profile-search'),
     path('profiles/details/', UserProfileDetails.as_view({'get': 'details'}), name='profile-details'),

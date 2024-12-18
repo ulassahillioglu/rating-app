@@ -41,7 +41,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
-ALLOWED_HOSTS = ['185.87.253.121','socialrate.net','localhost','ubasoft.net']
+ALLOWED_HOSTS = ['185.87.253.121','socialrate.net','localhost','ubasoft.net',"127.0.0.1"]
 MAX_OTP_TRY = 3
 
 # Application definition
@@ -121,7 +121,7 @@ CSP_SCRIPT_SRC = ("'self'", "https://ubasoft.net", "https://socialrate.net")  # 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -139,6 +139,13 @@ WSGI_APPLICATION = 'SocialApp.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 DATABASES = {
     'default': {
