@@ -9,6 +9,7 @@ router.register(r'user-profiles', UserProfileViewSet, basename='user-profile')
 router.register(r'comments', CommentViewSet, basename='comment')
 router.register(r'otp', OTPViewSet,basename='otp')
 
+#CoreApp
 urlpatterns = [
     path('', include(router.urls)),
     path('latest-comments/', LatestCommentsView.as_view(), name='latest-comments'),

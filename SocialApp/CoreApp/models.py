@@ -11,6 +11,7 @@ from django.core.validators import (
     FileExtensionValidator
 )
 from datetime import datetime, timedelta
+from django.db.models import JSONField
 from django.utils.timezone import now
 from django.db.models import Count, Q, F,Sum
 
@@ -73,13 +74,12 @@ class UserProfile(models.Model):
         ],
         default='images/profile-pics/keyd.jpg'
     )
-    
     otp = models.CharField(max_length=6)
     otp_expiry = models.DateTimeField(blank=True,null=True)
     max_otp_try = models.PositiveIntegerField(default=settings.MAX_OTP_TRY)
     otp_max_out = models.DateTimeField(blank=True,null=True)
     is_active = models.BooleanField(default=False)
-    
+    category_scores = JSONField(default=dict, blank=True, null=True)
     USERNAME_FIELD = "phone_number"
 
     # objects = UserProfileManager()
@@ -102,34 +102,41 @@ class UserProfile(models.Model):
     
     
     def get_category_comment_stats(self):
-        # Tüm kategorileri veritabanından alın
-        all_categories = Category.objects.all()  # Category modelinin mevcut olduğunu varsayıyoruz
-
-        # Kategorilere göre yorum puanlarının toplamını ve yorum sayısını al
-        category_stats = Comment.objects.filter(profile_commented_on=self).values('category') \
-            .annotate(
-                total_score=Sum('score'),
-                comment_count=Count('id')
-            )
-
-        # Tüm kategorileri 0 puanla başlat
-        stats = {category.id: {'score': 0} for category in all_categories}
-
-        # Yorum istatistiklerine dayalı olarak puanları güncelle
-        for stat in category_stats:
-            category_id = stat['category']
-            total_score = stat['total_score']
-            comment_count = stat['comment_count']
-
-            # Yorum sayısı varsa ortalama puan hesapla
-            if comment_count > 0:
-                score = total_score / comment_count  # Ortalama puan
+        all_categories = Category.objects.all()
+        
+        # Initialize stats for all categories
+        stats = {category.id: {'score': 0, 'count': 0} for category in all_categories}
+        
+        # Fetch all comments for the profile being commented on
+        comments = Comment.objects.filter(profile_commented_on=self)
+        
+        for comment in comments:
+            if hasattr(comment, 'category_scores') and comment.category_scores:
+                # New format: Use the category_scores field (JSON field)
+                category_scores = comment.category_scores
             else:
-                score = 0
+                # Old format: Use the separate category and score fields
+                category_scores = {str(comment.category.id): comment.score} if comment.category and comment.score else {}
+            
+            # Update stats for each category based on category_scores
+            for category_id, score in category_scores.items():
+                if int(category_id) in stats:
+                    stats[int(category_id)]['score'] += score
+                    stats[int(category_id)]['count'] += 1
 
-            stats[category_id] = {'score': round(score, 2)}  # Puanı yuvarlayarak kaydet
+        # Calculate average score for each category
+        for category_id, data in stats.items():
+            if data['count'] > 0:
+                avg_score = data['score'] / data['count']
+                stats[category_id]['avg_score'] = round(avg_score, 2)
+            else:
+                stats[category_id]['avg_score'] = 0  # No comments for this category, so set avg_score to 0
 
         return stats
+
+
+
+
 
 
     def get_user_average_score(self):
@@ -138,20 +145,20 @@ class UserProfile(models.Model):
         total_score = 0
         category_count = 0
 
-        # Tüm kategorilerin toplam puanını al
+        # Calculate total score and number of categories
         for category_id, category_stats in stats.items():
-            total_score += category_stats['score']
+            total_score += category_stats['avg_score']
             category_count += 1
 
-        # Genel puan (ortalama) hesapla
+        # Calculate average score (overall score)
         if category_count > 0:
             avg_score = round(total_score / category_count, 2)
         else:
             avg_score = 0
 
-        return {
-            'average_score': avg_score
-        }
+        return {'average_score': avg_score}
+
+
     def save(self, *args, **kwargs):
         if not self.profile_picture:
             self.profile_picture = 'images/profile-pics/keyd.jpg'
@@ -212,6 +219,7 @@ class Comment(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='comments', default=1)  # Yeni kategori alanı
     is_positive = models.BooleanField(default=True)  # Pozitif/negatif yorumu belirle
     score = models.PositiveIntegerField(default=0)
+    category_scores = JSONField(default=dict)
     
     def __str__(self):
         return f"Comment by {self.user_profile.user.username} on {self.profile_commented_on.user.username}'s profile"

@@ -99,56 +99,68 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 
 
 class CommentCreateView(APIView):
-    
     throttle_classes = [UserRateThrottle]
 
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            raise AuthenticationFailed('User is not authenticated.')
+            raise AuthenticationFailed('Kullanıcı giriş yapmadı.')
 
         try:
             user_profile = request.user.profile  # Ensure the user has a profile
         except AttributeError:
-            raise AuthenticationFailed('User does not have a profile.')
+            raise AuthenticationFailed('Böyle bir kullanıcı yok.')
 
         # Get the profile being commented on
         try:
             profile_commented_on = UserProfile.objects.get(username=request.data['profile_commented_on'])
         except UserProfile.DoesNotExist:
-            raise ValidationError('The profile being commented on does not exist.')
+            raise ValidationError('Bu kullanıcıya ait bir profil bulunamadı.')
 
         content = request.data.get('content', None)
         if not content:
-            raise ValidationError('Content is required.')
+            raise ValidationError('Yorum Girmelisiniz.')
 
-        # Get the category
-        category_id = request.data.get('category', None)
-        if not category_id:
-            raise ValidationError('Category is required.')
+        # Get and validate the category scores
+        category_scores = request.data.get('category_scores', {})
+        if not isinstance(category_scores, dict):
+            raise ValidationError('Category scores must be a dictionary.')
 
-        try:
-            category = Category.objects.get(id=category_id)  # Get category by ID
-        except Category.DoesNotExist:
-            raise ValidationError('Invalid category ID.')
-        
-        score = request.data.get('score', None)
-        if score is None:
-            raise ValidationError('score field is required.')
+        # Check if all required categories are provided by their IDs
+        required_category_ids = [1, 2, 3]  # IDs for Intelligence, Appearance, and Relationship
+        for category_id in required_category_ids:
+            if str(category_id) not in category_scores:
+                raise ValidationError(f'"{category_id}" için puan girmeniz gerekli.')
 
-        # Yorumu oluştur
-        try:
-            comment = Comment.objects.create(
-                user_profile=user_profile,
-                profile_commented_on=profile_commented_on,
-                content=content,
-                category=category,
-                score=score
+        # Validate the scores
+        for category_id, score in category_scores.items():
+            if not isinstance(score, int) or score < 1 or score > 10:
+                raise ValidationError(f'Category ID "{category_id}". 1-10 arasında bir puan vermelisiniz.')
+
+        # Update the JSON field for the profile being commented on
+        for category_id, score in category_scores.items():
+            current_data = profile_commented_on.category_scores.get(
+                str(category_id), {"total_score": 0, "comment_count": 0}
             )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        # Serialize ve yorum objesini return et
+            current_data["total_score"] += score
+            current_data["comment_count"] += 1
+            profile_commented_on.category_scores[str(category_id)] = current_data
+
+        # Save the profile with updated scores
+        profile_commented_on.save()
+
+        # Create a single comment record
+        comment = Comment.objects.create(
+            user_profile=user_profile,
+            profile_commented_on=profile_commented_on,
+            content=content,
+            category_scores=category_scores  # Save the JSON scores in the comment
+        )
+
+        # Serialize and return the created comment
         serializer = CommentSerializer(comment)
-        return Response(serializer.data, status=200)
+        return Response(serializer.data, status=201)
+
+
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -519,7 +531,7 @@ class UserProfileDetails(viewsets.ModelViewSet):
 
         # Yorum istatistiklerini hesapla
         comment_stats = user_profile.get_category_comment_stats()
-        user_average_score = user_profile.get_user_average_score()  # Rename method or update logic as needed
+        user_average_score = user_profile.get_user_average_score()  # Calculate average score
 
         # İstatistikleri döndür
         return Response({
@@ -591,7 +603,8 @@ class OTPViewSet(viewsets.ModelViewSet):
             instance.max_otp_try = max_otp_try
         
         instance.save()
-        send_sms_otp(instance.phone_number, otp)
+        # send_sms_otp(instance.phone_number, otp)
+        send_email_notification("Activate your Account", otp, settings.EMAIL_HOST_USER, instance.email)
         return Response({"detail": "Yeni OTP kodu gönderildi."}, status=status.HTTP_200_OK)
  
 

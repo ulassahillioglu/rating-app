@@ -99,7 +99,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'middleware.otprestrict.RestrictOTPEndpointMiddleware'
+    'middleware.otprestrict.RestrictOTPEndpointMiddleware',
+    'middleware.iprestrict.BlockExactApiPathMiddleware'
 ]
 
 ROOT_URLCONF = 'SocialApp.urls'
@@ -189,9 +190,11 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOW_HEADERS = [
-    'Access-Control-Allow-Origin',
-    'Authorization',  # Authorization header'ına izin ver
-    'Content-Type',
+    'Authorization',  # Allows the Authorization header to be passed
+    'Content-Type',   # Allows content type headers like 'application/json'
+    'X-Requested-With',  # Optional for requests made with XMLHttpRequest
+    'Accept',
+    'Access-Control-Allow-Origin' # Optional
 ]
 
 CORS_ALLOW_METHODS = [
