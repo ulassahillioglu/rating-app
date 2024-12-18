@@ -10,15 +10,19 @@ from rest_framework.views import APIView
 from rest_framework.throttling import UserRateThrottle,AnonRateThrottle
 from rest_framework.generics import GenericAPIView
 
+from django.db.models import Count, Q, F,Sum
+from django.db import transaction
 from django.utils import timezone
 from django.shortcuts import render
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils.timezone import timedelta
+from django.contrib.auth.models import User
 
 from .models import Category, Report, UserProfile, Comment
-from .serializers import ReportSerializer, UserProfileSerializer, CommentSerializer
+from .serializers import ReportSerializer, UserProfileSerializer, CommentSerializer, UserUpdateSerializer
+from UserAuth.serializers import UserSerializer
 
 import random, os
 import datetime
@@ -38,7 +42,7 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-        
+    
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def me(self, request):
         """Retrieve the currently authenticated user's profile."""
@@ -68,7 +72,6 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     def upload(self, request):
         """Upload a profile picture for the authenticated user."""
         user_profile = UserProfile.objects.get(user=request.user)
-        
         if 'profile_picture' not in request.data:
             return Response({'error': 'No profile picture provided.'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -87,15 +90,45 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['put'], permission_classes=[IsAuthenticated])
     def update_profile(self, request):
         """Update the authenticated user's profile information."""
-        user_profile = UserProfile.objects.get(user=request.user)
+        try:
+            # Kullanıcı profilini al (Core_Users table)
+            user_profile = UserProfile.objects.get(user=request.user)
+        except UserProfile.DoesNotExist:
+            return Response({"detail": "User profile not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        # Deserialize and validate the data
-        serializer = self.get_serializer(user_profile, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Bütünlüğü korumak için aktarım başlatma
+        with transaction.atomic():
+            # Update `auth_user` (User model)
+            user_auth = request.user
+            user_auth_serializer = UserSerializer(user_auth, data=request.data, partial=True)
+
+            if user_auth_serializer.is_valid():
+                user_auth_serializer.save()
+
+                # Update password if provided
+                if request.data.get('password'):
+                    user_auth.set_password(request.data['password'])
+                    user_auth.save()
+
+            else:
+                return Response(user_auth_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            # Update `Core_Users` (UserProfile model)
+            user_profile_serializer = self.get_serializer(user_profile, data=request.data, partial=True)
+
+            if user_profile_serializer.is_valid():
+                user_profile_serializer.save()
+            else:
+                return Response(user_profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # If everything succeeds
+        return Response(
+            {
+                "auth_user": user_auth_serializer.data,
+                "user_profile": user_profile_serializer.data,
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 class CommentCreateView(APIView):
@@ -168,14 +201,90 @@ class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticated]
     throttle_classes = [TokenRateLimiter]
+    
+    @action(detail=True, methods=['put'])
+    def edit_comment(self, request, pk=None):
+        """
+        Edit a comment.
+        """
+        comment = get_object_or_404(Comment, pk=pk)
 
-    def perform_create(self, serializer):
+        # Check if the user is the one who made the comment
+        if comment.user_profile.user != request.user:
+            return Response({"error": "You can only edit your own comments."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Ensure the user is authenticated
+        if not request.user.is_authenticated:
+            raise AuthenticationFailed('Kullanıcı giriş yapmadı.')
+
         try:
-            user_profile = UserProfile.objects.get(id=self.request.data['user_profile'])
-        except UserProfile.DoesNotExist:
-            raise serializers.ValidationError({"error": "User profile not found."})
-        serializer.save(user_profile=user_profile)
+            user_profile = request.user.profile  # Ensure the user has a profile
+        except AttributeError:
+            raise AuthenticationFailed('Böyle bir kullanıcı yok.')
 
+        # Get the profile being commented on
+        try:
+            profile_commented_on = UserProfile.objects.get(username=request.data['profile_commented_on'])
+        except UserProfile.DoesNotExist:
+            raise ValidationError('Bu kullanıcıya ait bir profil bulunamadı.')
+
+        content = request.data.get('content', None)
+        if not content:
+            raise ValidationError('Yorum Girmelisiniz.')
+
+        # Get and validate the category scores
+        category_scores = request.data.get('category_scores', {})
+        if not isinstance(category_scores, dict):
+            raise ValidationError('Category scores must be a dictionary.')
+
+        # Check if all required categories are provided by their IDs
+        required_category_ids = [1, 2, 3]  # IDs for Intelligence, Appearance, and Relationship
+        for category_id in required_category_ids:
+            if str(category_id) not in category_scores:
+                raise ValidationError(f'"{category_id}" için puan girmeniz gerekli.')
+
+        # Validate the scores
+        for category_id, score in category_scores.items():
+            if not isinstance(score, int) or score < 1 or score > 10:
+                raise ValidationError(f'Category ID "{category_id}". 1-10 arasında bir puan vermelisiniz.')
+
+        # Update the JSON field for the profile being commented on
+        for category_id, score in category_scores.items():
+            current_data = profile_commented_on.category_scores.get(
+                str(category_id), {"total_score": 0, "comment_count": 0}
+            )
+            current_data["total_score"] += score
+            current_data["comment_count"] += 1
+            profile_commented_on.category_scores[str(category_id)] = current_data
+
+        # Save the profile with updated scores
+        profile_commented_on.save()
+
+        # Now, update the comment's content and category_scores (if needed)
+        comment.content = content
+        comment.category_scores = category_scores
+        comment.save()
+
+        # Serialize and return the updated comment
+        serializer = CommentSerializer(comment)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+    @action(detail=True, methods=['delete'])
+    def delete_comment(self, request, pk=None):
+        """
+        Delete a comment.
+        """
+        comment = get_object_or_404(Comment, pk=pk)
+
+        # Check if the user is the one who made the comment
+        if comment.user_profile.user != request.user:
+            return Response({"error": "You can only delete your own comments."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Delete the comment
+        comment.delete()
+        return Response({"detail": "Comment deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
     @action(detail=False, methods=['get'])
     def own_comments(self, request):
         try:
@@ -380,19 +489,35 @@ class FollowToggleView(APIView):
 
 class UserProfileSearchView(GenericAPIView):
     """
-    Kullanıcı adıyla arama yapar ve sonuçları sayfalayarak döner.
+    Kullanıcı adı, isim, soyisim veya telefon numarası ile arama yapar ve sonuçları sayfalayarak döner.
     """
-    
+
     throttle_classes = [UserRateThrottle]
     serializer_class = UserProfileSerializer
-    
+
     def get(self, request, *args, **kwargs):
         query = request.query_params.get('q', '')  # Arama kelimesi
         if not query:
             return Response({"detail": "Search query parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Kullanıcı adında arama yap
-        profiles = UserProfile.objects.filter(username__icontains=query).order_by('id')  # 'id' alanına göre sıralama yap
+        # Split the query into separate terms by spaces
+        query_terms = query.split()
+
+        # Start with an empty Q object
+        query_filter = Q()
+
+        # Add each query term to the filter with 'OR' logic for each field
+        for term in query_terms:
+            query_filter |= Q(username__icontains=term)
+            query_filter |= Q(first_name__icontains=term)
+            query_filter |= Q(last_name__icontains=term)
+            query_filter |= Q(phone_number__icontains=term)
+
+        # Add 'is_active' filter to only include active users
+        query_filter &= Q(is_active=True)
+
+        # Apply the filter to the UserProfile model
+        profiles = UserProfile.objects.filter(query_filter).order_by('id')
 
         # Sayfalama
         paginator = PageNumberPagination()
@@ -401,9 +526,10 @@ class UserProfileSearchView(GenericAPIView):
 
         # Sonuçları serileştir
         serializer = self.get_serializer(paginated_profiles, many=True)
-        
+
         # Sayfalanmış sonuçları döndür
         return paginator.get_paginated_response(serializer.data)
+
 
 
 class UserProfileDetails(viewsets.ModelViewSet):  
@@ -430,6 +556,23 @@ class UserProfileDetails(viewsets.ModelViewSet):
         
         # Kullanıcıyı serileştir ve döndür
         serializer = self.get_serializer(user_profile)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def info(self, request):
+        """Retrieve the currently searched user's profile by username."""
+        username = request.query_params.get('username', None)
+        if username is None:
+            return Response({"detail": "Username query parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Aranan kullanıcıyı bul
+            user_profile = UserProfile.objects.get(username=username)
+        except UserProfile.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Kullanıcıyı serileştir ve döndür
+        serializer = UserUpdateSerializer(user_profile)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
@@ -546,6 +689,7 @@ class OTPViewSet(viewsets.ModelViewSet):
     throttle_classes = [CustomRateLimiter]
     
     
+    
     @action(detail=True,methods=['PATCH'])
     def verify_otp(self,request,pk=None):
         instance = self.get_object()
@@ -630,3 +774,30 @@ class DocumentListView(APIView):
             for f in os.listdir(docs_dir) if f.endswith(".pdf")
         ]
         return Response(docs)
+
+
+class GetUserIdView(APIView):
+    throttle_classes = [CustomRateLimiter]
+    serializers = UserProfileSerializer
+    def get(self, request, username=None):
+        """
+        Retrieve the ID of a user profile based on the provided username.
+        """
+        # Extract the username from query parameters
+        username = request.query_params.get('username')
+        
+        if not username:
+            return Response(
+                {"detail": "Username parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Retrieve the UserProfile associated with the given username
+            user_profile = UserProfile.objects.get(user__username=username)
+            return Response({'id': user_profile.id}, status=status.HTTP_200_OK)
+        except UserProfile.DoesNotExist:
+            return Response(
+                {"detail": "UserProfile with the given username does not exist."},
+                status=status.HTTP_404_NOT_FOUND
+            )

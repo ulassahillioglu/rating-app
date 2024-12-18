@@ -13,7 +13,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if obj.profile_picture:
             return f'http://localhost:8000{obj.profile_picture.url}'
         return None
-        
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'phone_number','bio']
 
 class CommentSerializer(serializers.ModelSerializer):
     commenter_username = serializers.CharField(source='user_profile.user.username')  # Yorumu yapan kullanıcının username'i
