@@ -72,7 +72,7 @@ class UserProfile(models.Model):
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
             max_file_size_validator,  # Limit file size to 2 MB
         ],
-        default='images/profile-pics/keyd.jpg'
+        default='images/profile-pics/default.jpg'
     )
     otp = models.CharField(max_length=6)
     otp_expiry = models.DateTimeField(blank=True,null=True)
