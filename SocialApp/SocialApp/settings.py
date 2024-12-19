@@ -34,12 +34,15 @@ SECRET_KEY = 'django-insecure-qm#uvdpbjin(%)pe&owqvjy(4b8d078e4kv*91v=3%0-3vhe3g
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_HOST_USER = 'johannmcrollin@gmail.com'
-EMAIL_HOST_PASSWORD = 'wpdvtyiftbgbickk'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+EMAIL_HOST = 'nano.promail.com.tr'
+EMAIL_PORT = 465
+EMAIL_HOST_USER = 'info@socialrate.net'
+EMAIL_HOST_PASSWORD = 'Fevzi.12345'
+EMAIL_USE_SSL = True
+EMAIL_USE_TLS = False
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+
 
 ALLOWED_HOSTS = ['185.87.253.121','socialrate.net','localhost','ubasoft.net',"127.0.0.1"]
 MAX_OTP_TRY = 3
