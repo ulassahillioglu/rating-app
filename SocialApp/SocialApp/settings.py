@@ -15,6 +15,7 @@ from pathlib import Path
 import os
 import environ
 from datetime import timedelta
+from decouple import config
 
 env = environ.Env()
 
@@ -29,10 +30,10 @@ SMS_API_KEY = env('SMS_API_KEY')
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-qm#uvdpbjin(%)pe&owqvjy(4b8d078e4kv*91v=3%0-3vhe3g'
+SECRET_KEY = env('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 EMAIL_HOST = 'nano.promail.com.tr'
 EMAIL_PORT = 465
@@ -63,7 +64,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_yasg',
     'rest_framework_simplejwt',
-    'csp'
+    # 'csp'
     
 ]
 
@@ -107,17 +108,17 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'middleware.otprestrict.RestrictOTPEndpointMiddleware',
     'middleware.iprestrict.BlockExactApiPathMiddleware',
-    'csp.middleware.CSPMiddleware',
+    # 'csp.middleware.CSPMiddleware',
 ]
 
 ROOT_URLCONF = 'SocialApp.urls'
 
 
-CSP_INCLUDE_NONCE_IN = ['script-src']
-CSP_CONNECT_SRC = ("'self'", "https://socialrate.net", "https://ubasoft.net")  # Allow both frontend and backend
-CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "'unsafe-inline'")
-CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com")  # Allow font loading
-CSP_SCRIPT_SRC = ("'self'", "https://ubasoft.net", "https://socialrate.net")  # Allow frontend and backend scripts
+# CSP_INCLUDE_NONCE_IN = ['script-src']
+# CSP_CONNECT_SRC = ("'self'", "https://socialrate.net", "https://ubasoft.net")  # Allow both frontend and backend
+# CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "'unsafe-inline'")
+# CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com")  # Allow font loading
+# CSP_SCRIPT_SRC = ("'self'", "https://ubasoft.net", "https://socialrate.net")  # Allow frontend and backend scripts
 
 
 
@@ -143,23 +144,23 @@ WSGI_APPLICATION = 'SocialApp.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'socialrcore',
-	'USER': 'admin',
-	'PASSWORD': 'SR*0xx',
-	'HOST':'localhost',
-	'PORT':'5432'
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#         'NAME': 'socialrcore',
+# 	'USER': 'admin',
+# 	'PASSWORD': env('DB_PASSWORD'),
+# 	'HOST':'localhost',
+# 	'PORT':'5432'
+#     }
+# }
 
 
 # Password validation
