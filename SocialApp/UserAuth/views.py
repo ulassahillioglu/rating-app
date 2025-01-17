@@ -4,7 +4,10 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.utils.timezone import timedelta
+from django.utils import timezone
 
+import random
 from datetime import datetime
 from CoreApp.models import UserProfile, generate_random_unique_id,validate_phone_number
 from CoreApp.utils import send_sms_otp, send_email_notification
@@ -174,7 +177,54 @@ def signup(request):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['POST'])
+def forgot_password(request):
+    """Send OTP to user's email for password reset."""
+    email = request.data.get('email')
+    if not email:
+        return Response({"detail": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user_profile = UserProfile.objects.get(email=email)
+    except UserProfile.DoesNotExist:
+        return Response({"detail": "User with this email does not exist."}, status=status.HTTP_404_NOT_FOUND)
+    
+    otp = random.randint(100000, 999999)
+    otp_expiry = timezone.now() + timedelta(minutes=5)
+    
+    user_profile.otp = otp
+    user_profile.otp_expiry = otp_expiry
+    user_profile.save()
+    
+    send_email_notification("Parolanızı sıfırlamanız için güvenlik kodu: ", otp, settings.EMAIL_HOST_USER, email)
+    return Response({"detail": "OTP mail adresine gönderildi."}, status=status.HTTP_200_OK)
 
+@api_view(['POST'])
+def reset_password(request):
+    """Reset password using OTP."""
+    email = request.data.get('email')
+    otp = request.data.get('otp')
+    new_password = request.data.get('password')
+    
+    if not email or not otp or not new_password:
+        return Response({"detail": "Email, OTP, and new password are required."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user_profile = UserProfile.objects.get(email=email)
+    except UserProfile.DoesNotExist:
+        return Response({"detail": "User with this email does not exist."}, status=status.HTTP_404_NOT_FOUND)
+    
+    if user_profile.otp != otp or timezone.now() > user_profile.otp_expiry:
+        return Response({"detail": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user = User.objects.get(email=email)
+    user.set_password(new_password)
+    user.save()
+    
+    user_profile.otp_expiry = None
+    user_profile.save()
+    
+    return Response({"detail": "Password reset successfully."}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

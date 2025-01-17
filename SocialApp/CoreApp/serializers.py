@@ -24,26 +24,52 @@ class CommentSerializer(serializers.ModelSerializer):
     commenter_username = serializers.CharField(source='user_profile.user.username')  # Yorumu yapan kullanıcının username'i
     user_unique_id = serializers.CharField(source='user_profile.unique_id')  # Yorumu yapan kullanıcının unique_id'si
     commented_profile_username = serializers.CharField(source='profile_commented_on.user.username')  # Yorum yapılan profilin username'i
+    commented_profile_full_name = serializers.SerializerMethodField()
+    commented_profile_picture = serializers.ImageField(source='profile_commented_on.profile_picture')  # Yorum yapılan profilin profil resmi
     commented_profile_unique_id = serializers.CharField(source='profile_commented_on.unique_id')  # Yorum yapılan profilin unique_id'si
     created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')  # Tarih formatı
-    category = serializers.CharField(source='category.name') # Kategorinin adı
-    category_id = serializers.IntegerField(source='category.id')  
-    
+    average_score = serializers.SerializerMethodField()
     class Meta:
         model = Comment
         fields = [
             'id',
             'commenter_username',
             'content',
+            'likes',
+            'dislikes',
             'created_at',
             'user_unique_id',
             'is_anonymous',
+            'commented_profile_full_name',  # Yeni alan
             'commented_profile_username',  # Yeni alan
+            'commented_profile_picture',  # Yeni alan
             'commented_profile_unique_id',  # Yeni alan
-            'category',
-            'category_id' 
+            'category_scores',
+            'average_score'
         ]
-
+    
+    def get_average_score(self, obj):
+        total = 0
+        count = 0
+        
+        # Anahtar ve değerler üzerinde döngü yaparak toplamı ve sayacı hesapla
+        for category, score in obj.category_scores.items():
+            print(category, score)  # Print for debugging
+            total += int(score)
+            count += 1
+        
+        # Eğer hiç puan yoksa 0 döndür
+        if count == 0:
+            return 0  
+        
+        return round(total / count,2)  # Ortalamayı döndür
+ 
+    
+        
+    def get_commented_profile_full_name(self, obj):
+        first_name = obj.profile_commented_on.user.first_name
+        last_name = obj.profile_commented_on.user.last_name
+        return f"{first_name} {last_name}"
 
 class ReportSerializer(serializers.ModelSerializer):
     class Meta:

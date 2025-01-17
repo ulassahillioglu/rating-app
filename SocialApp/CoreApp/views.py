@@ -129,7 +129,8 @@ class UserProfileViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK
         )
-
+        
+        
 
 class CommentCreateView(APIView):
     throttle_classes = [UserRateThrottle]
@@ -434,9 +435,10 @@ class ToggleDislikeCommentView(APIView):
 
 
 ##Anasayfaya takip edilen kullanıcılara yapılan son yorumları getir
-class LatestCommentsView(APIView):
+class LatestCommentsView(GenericAPIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [TokenRateLimiter]
+    serializer_class = CommentSerializer
     
     def get(self, request):
         # Kullanıcının profilini al
@@ -453,7 +455,7 @@ class LatestCommentsView(APIView):
         paginated_comments = paginator.paginate_queryset(comments, request)
         
         # Yorumları serileştir
-        comment_serializer = CommentSerializer(paginated_comments, many=True)
+        comment_serializer = self.get_serializer(paginated_comments, many=True)
         return paginator.get_paginated_response(comment_serializer.data)
         
 
