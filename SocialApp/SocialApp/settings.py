@@ -94,7 +94,7 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'
         # 'CoreApp.throttling.CustomRateLimiter',
-        # 'CoreApp.throttling.TokenRateLimiter',
+        'CoreApp.throttling.TokenRateLimiter',
     ],
 }
 
