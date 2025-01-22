@@ -81,19 +81,29 @@ REST_FRAMEWORK = {
     ]
     ,
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '20/day',
-        'user': '100/day',
-        'superuser': '1000/day',
-        'api_key': '200/day',
-        'session': '500/day',
-        'token': '1000/hour',
+        'anon': '20/minute',
+        'user': '1000/minute',
+        'superuser': '1000/minute',
+        'api_key': '200/minute',
+        'session': '500/minute',
+        'token': '1000/minute',
         'ratelimit': '100/minute',
-        'custom': '30/minute'
+        'custom': '30/second'
     },
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle'
+        'rest_framework.throttling.UserRateThrottle',
+        'CoreApp.throttling.CustomRateLimiter',
+        'CoreApp.throttling.TokenRateLimiter',
     ],
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 60,  # 1 dakika boyunca önbellekte tut
+    }
 }
 
 MIDDLEWARE = [
