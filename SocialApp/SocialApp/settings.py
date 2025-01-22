@@ -92,7 +92,7 @@ REST_FRAMEWORK = {
     },
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle'
+        'rest_framework.throttling.UserRateThrottle',
         # 'CoreApp.throttling.CustomRateLimiter',
         'CoreApp.throttling.TokenRateLimiter',
     ],
