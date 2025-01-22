@@ -28,7 +28,7 @@ class TokenRateLimiter(BaseThrottle):
 
     def allow_request(self, request, view):
         # Extract token from the request (assuming token is in the headers)
-        pass
+        return True
 
     def is_allowed(self, token):
         # Define custom rate limit (e.g., 100 requests per minute per token)
