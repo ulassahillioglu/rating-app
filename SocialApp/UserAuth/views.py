@@ -10,6 +10,7 @@ from django.utils import timezone
 import random
 from datetime import datetime
 from CoreApp.models import UserProfile, generate_random_unique_id,validate_phone_number
+from CoreApp.serializers import UserProfileSerializer
 from CoreApp.utils import send_sms_otp, send_email_notification
 from .serializers import UserSerializer
 
@@ -25,6 +26,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 def login(request):
     try:
         user = User.objects.get(username=request.data['username'])
+        user_profile = UserProfile.objects.get(username=request.data['username'])
     except User.DoesNotExist:
         return Response({"detail": "Kullanıcı bulunamadı."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -36,7 +38,7 @@ def login(request):
 
     # JWT token oluşturma
     refresh = RefreshToken.for_user(user)
-    serialized_user = UserSerializer(user)
+    serialized_user = UserProfileSerializer(user_profile)
 
     user.last_login = datetime.now()
     user.save()
