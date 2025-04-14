@@ -52,6 +52,20 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 
     from rest_framework.exceptions import NotFound
 
+    def destroy(self, request, *args, **kwargs):
+        """Delete both UserProfile and related User if authorized."""
+        instance = self.get_object()
+
+        # Only the owner or an admin can delete
+        if instance.user != request.user and not request.user.is_staff:
+            return Response({'detail': 'Bu profili silmek için gerekli yetkiye sahip değilsiniz.'}, status=status.HTTP_403_FORBIDDEN)
+
+        with transaction.atomic():
+            instance.delete()          # Core_Users (UserProfile)
+            instance.user.delete()     # auth_user (User)
+
+        return Response({'detail': 'Kullanıcı profili başarılı şekilde silindi.'}, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def comments(self, request, pk=None):
         """Retrieve paginated comments for a specific user's profile."""
