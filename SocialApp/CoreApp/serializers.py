@@ -21,13 +21,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'first_name', 'last_name', 'email', 'phone_number','bio']
 
 class CommentSerializer(serializers.ModelSerializer):
-    commenter_username = serializers.CharField(source='user_profile.user.username')  # Yorumu yapan kullanıcının username'i
-    user_unique_id = serializers.CharField(source='user_profile.unique_id')  # Yorumu yapan kullanıcının unique_id'si
-    commented_profile_username = serializers.CharField(source='profile_commented_on.user.username')  # Yorum yapılan profilin username'i
+    commenter_username = serializers.CharField(source='user_profile.user.username')  # Username of the commenter
+    user_unique_id = serializers.CharField(source='user_profile.unique_id')  # Unique ID of the commenter
+    commented_profile_username = serializers.CharField(source='profile_commented_on.user.username')  # Username of the commented profile
     commented_profile_full_name = serializers.SerializerMethodField()
-    commented_profile_picture = serializers.ImageField(source='profile_commented_on.profile_picture')  # Yorum yapılan profilin profil resmi
-    commented_profile_unique_id = serializers.CharField(source='profile_commented_on.unique_id')  # Yorum yapılan profilin unique_id'si
-    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')  # Tarih formatı
+    commented_profile_picture = serializers.ImageField(source='profile_commented_on.profile_picture')  # Profile picture of the commented profile
+    commented_profile_unique_id = serializers.CharField(source='profile_commented_on.unique_id')  # Unique ID of the commented profile
+    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')  # Date format
     average_score = serializers.SerializerMethodField()
     class Meta:
         model = Comment
@@ -40,10 +40,10 @@ class CommentSerializer(serializers.ModelSerializer):
             'created_at',
             'user_unique_id',
             'is_anonymous',
-            'commented_profile_full_name',  # Yeni alan
-            'commented_profile_username',  # Yeni alan
-            'commented_profile_picture',  # Yeni alan
-            'commented_profile_unique_id',  # Yeni alan
+            'commented_profile_full_name',  # New field
+            'commented_profile_username',  # New field
+            'commented_profile_picture',  # New field
+            'commented_profile_unique_id',  # New field
             'category_scores',
             'average_score'
         ]
@@ -51,19 +51,19 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_average_score(self, obj):
         total = 0
         count = 0
-        
-        # Anahtar ve değerler üzerinde döngü yaparak toplamı ve sayacı hesapla
+
+        # Calculate total and count
         for category, score in obj.category_scores.items():
             print(category, score)  # Print for debugging
             total += int(score)
             count += 1
-        
-        # Eğer hiç puan yoksa 0 döndür
+
+        # Return 0 if no scores were found
         if count == 0:
-            return 0  
-        
-        return round(total / count,2)  # Ortalamayı döndür
- 
+            return 0
+
+        return round(total / count, 2)  # Return the average
+
     
         
     def get_commented_profile_full_name(self, obj):

@@ -20,24 +20,24 @@ import re
 
 def validate_phone_number(value):
     """
-    Telefon numarasını doğrular.
-    - 10 haneli olmalı
-    - Sadece sayılardan oluşmalı
-    - Başında '0' olmamalı
+    Validate the phone number.
+    - Must be 10 digits long
+    - Must consist of only numbers
+    - Must not start with '0'
     """
     regex = r"^\d{10}$"
     if not re.match(regex, value):
-        raise ValidationError("Telefon numarası 10 haneli olmalı ve yalnızca sayılardan oluşmalıdır.")
-    
+        raise ValidationError("Phone number must be 10 digits long and consist of only numbers.")
+
     if value.startswith("0"):
-        raise ValidationError("Telefon numarası başında '0' olmamalıdır.")
+        raise ValidationError("Phone number must not start with '0'.")
 
 
 def max_file_size_validator(file):
     limit_bytes = 2 * 1024 * 1024  # 2 MB
     if file.size > limit_bytes:
         limit_mb = limit_bytes // (1024 * 1024)
-        raise ValidationError(f"Yüklenebilecek max dosya boyutu {limit_mb} MB. Lütfen daha düşük boyutlu bir dosya yükleyin.")
+        raise ValidationError(f"Maximum file size allowed is {limit_mb} MB. Please upload a smaller file.")
 
 # Function to generate a random string (letters and digits)
 def generate_random_unique_id():
@@ -94,13 +94,13 @@ class UserProfile(models.Model):
         verbose_name_plural = "User Profiles"
         
     def generate_otp(self):
-        """6 haneli rastgele bir OTP üretir."""
+        """Generate a random 6-digit OTP."""
         self.otp = ''.join(random.choices('0123456789', k=6))
-        self.otp_expiry = now() + timedelta(minutes=5)  # OTP 5 dakika geçerli
+        self.otp_expiry = now() + timedelta(minutes=5)  # OTP is valid for 5 minutes
         self.save()
-        return self.otp,self.otp_expiry
-    
-    
+        return self.otp, self.otp_expiry
+
+
     def get_category_comment_stats(self):
         all_categories = Category.objects.all()
         
@@ -173,28 +173,28 @@ class UserProfile(models.Model):
 
 class Follow(models.Model):
     follower = models.ForeignKey(
-        UserProfile,  # Takip eden kullanıcı
+        UserProfile,  # Following user
         on_delete=models.CASCADE,
         related_name='follower_relationships'
     )
     following = models.ForeignKey(
-        UserProfile,  # Takip edilen kullanıcı
+        UserProfile,  # Followed user
         on_delete=models.CASCADE,
         related_name='following_relationships'
     )
-    created_at = models.DateTimeField(auto_now_add=True)  # Takip tarihini kaydeder
+    created_at = models.DateTimeField(auto_now_add=True)  # Follow date
 
-    # Takip eden kullanıcının adını döndürür
+    # Returns the username of the following user
     def follower_username(self):
         return self.follower.username
 
-    # Takip edilen kullanıcının adını döndürür
+    # Returns the username of the followed user
     def following_username(self):
         return self.following.username
     
     class Meta:
         db_table = 'Core_Follows'
-        unique_together = ('follower', 'following')  # Aynı ilişkiyi birden fazla kez eklemeyi engeller
+        unique_together = ('follower', 'following')  # Prevents adding the same relationship multiple times
 
     def __str__(self):
         return f"{self.follower.username} follows {self.following.username}"
@@ -216,8 +216,8 @@ class Comment(models.Model):
     is_anonymous = models.BooleanField(default=True)
     likes = models.ManyToManyField(UserProfile, related_name='liked_comments', blank=True)
     dislikes = models.ManyToManyField(UserProfile, related_name='disliked_comments', blank=True)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='comments', default=1)  # Yeni kategori alanı
-    is_positive = models.BooleanField(default=True)  # Pozitif/negatif yorumu belirle
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='comments', default=1)  # new category field
+    is_positive = models.BooleanField(default=True)  # Determine positive/negative comment
     score = models.PositiveIntegerField(default=0)
     category_scores = JSONField(default=dict)
     
@@ -240,7 +240,7 @@ class UserInquiry(models.Model):
     
 
     def __str__(self):
-        return f"{self.user.user.username} tarafından girilen talep"
+        return f"Request submitted by {self.user.user.username}"
     
     def save(self, *args, **kwargs):
         self.subject = self.subject.strip()
@@ -275,7 +275,7 @@ class Report(models.Model):
         UserProfile,
         on_delete=models.CASCADE,
         related_name='reports_made',
-        verbose_name='Rapor Eden Kullanıcı'
+        verbose_name='Reporting User'
     )
     reported_comment = models.ForeignKey(
         Comment,
@@ -283,7 +283,7 @@ class Report(models.Model):
         related_name='reports',
         blank=True,
         null=True,
-        verbose_name='Şikayet Edilen Yorum'
+        verbose_name='Reported Comment'
     )
     reported_profile = models.ForeignKey(
         UserProfile,
@@ -291,14 +291,14 @@ class Report(models.Model):
         related_name='profile_reports',
         blank=True,
         null=True,
-        verbose_name='Şikayet Edilen Profil'
+        verbose_name='Reported Profile'
     )
     report_type = models.CharField(
         max_length=10,
         choices=REPORT_TYPE_CHOICES,
-        verbose_name='Şikayet Türü'
+        verbose_name='Report Type'
     )
-    reason = models.TextField(max_length=255, blank=False, null=False, verbose_name='Gerekçe')
+    reason = models.TextField(max_length=255, blank=False, null=False, verbose_name='Reason')
     created_at = models.DateTimeField(auto_now_add=True)
     is_reviewed = models.BooleanField(default=False, verbose_name='Reviewed Status')
 

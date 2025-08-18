@@ -12,7 +12,7 @@ urlpatterns = [
     re_path('test_token/',views.test_token,name="test_token"),
     re_path('is_superuser/', views.is_superuser, name='is_superuser'),
     
-    # JWT token endpoint'leri
+    # JWT token endpoints
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

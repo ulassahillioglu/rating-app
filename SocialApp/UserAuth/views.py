@@ -28,15 +28,15 @@ def login(request):
         user = User.objects.get(username=request.data['username'])
         user_profile = UserProfile.objects.get(username=request.data['username'])
     except User.DoesNotExist:
-        return Response({"detail": "Kullanıcı bulunamadı."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
     if not user.is_active:
-        return Response({"detail": "Kullanıcı aktif değil. Lütfen hesabınızı doğrulayın"}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"detail": "User is not active. Please verify your account."}, status=status.HTTP_403_FORBIDDEN)
 
     if not user.check_password(request.data['password']):
-        return Response({"detail": "Hatalı parola girdiniz."}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({"detail": "Incorrect password."}, status=status.HTTP_401_UNAUTHORIZED)
 
-    # JWT token oluşturma
+    # Creating JWT tokens
     refresh = RefreshToken.for_user(user)
     serialized_user = UserProfileSerializer(user_profile)
 
@@ -54,14 +54,14 @@ def login(request):
 def refresh_token(request):
     refresh_token = request.data.get('refresh')
     if not refresh_token:
-        return Response({"detail": "Refresh token eksik."}, status=400)
+        return Response({"detail": "Refresh token is missing."}, status=400)
     try:
         refresh = RefreshToken(refresh_token)
         access_token = str(refresh.access_token)
         return Response({"access": access_token}, status=200)
     except Exception as e:
-        return Response({"detail": "Geçersiz refresh token."}, status=401)
-  
+        return Response({"detail": "Invalid refresh token."}, status=401)
+
 @api_view(['GET'])
 @login_required
 @authentication_classes([SessionAuthentication,TokenAuthentication])
@@ -93,12 +93,12 @@ def signup(request):
     username = request.data.get('username')
     email = request.data.get('email')
     try:
-        validate_email(email)  # Email doğrulaması
+        validate_email(email)  # Email validation
     except ValidationError:
-        return Response({"error": "Geçersiz bir email adresi girdiniz."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Invalid email address."}, status=status.HTTP_400_BAD_REQUEST)
     password = request.data.get('password')
     if len(password) < 8:
-        return Response({"error": "Parola en az 8 karakterden oluşmalı"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Password must be at least 8 characters long."}, status=status.HTTP_400_BAD_REQUEST)
     first_name = request.data.get('first_name')
     last_name = request.data.get('last_name')
     bio = request.data.get('bio', '')
@@ -107,42 +107,42 @@ def signup(request):
     try:
         validate_phone_number(phone_number)
     except ValidationError:
-        return Response({"error": "Geçersiz bir telefon numarası girdiniz."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Invalid phone number."}, status=status.HTTP_400_BAD_REQUEST)
     birth_date_str = request.data.get('birth_date')
 
-    # Doğum tarihini kontrol et 1
+    # Validate birth date
     try:
         birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
         if not str(birth_date.year).startswith(('1', '2')):
-            return Response({"error": "Geçerli bir tarih girdiniz"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid date."}, status=status.HTTP_400_BAD_REQUEST)
 
         if birth_date.year < 1900 or birth_date.year > datetime.now().year:
-            return Response({"error": "Geçerli bir yıl girdiniz"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid year."}, status=status.HTTP_400_BAD_REQUEST)
 
         if birth_date.month < 1 or birth_date.month > 12:
-            return Response({"error": "Geçerli bir ay girdiniz"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid month."}, status=status.HTTP_400_BAD_REQUEST)
 
         if birth_date.month == 2 and birth_date.day > 29:
-            return Response({"error": "Geçerli bir tarih girdiniz"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid date."}, status=status.HTTP_400_BAD_REQUEST)
         elif birth_date.month == 2 and birth_date.day == 29 and not (birth_date.year % 4 == 0 and (birth_date.year % 100 != 0 or birth_date.year % 400 == 0)):
-            return Response({"error": "Geçerli bir tarih girdiniz"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid date."}, status=status.HTTP_400_BAD_REQUEST)
 
 
         today = datetime.today().date()
         age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
         if age < 13:
-            return Response({"error": "Kayıt olmak için 13 yaşından büyük olmalısınız."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "You must be over 13 years old to register."}, status=status.HTTP_400_BAD_REQUEST)
     except ValueError:
         return Response({"error": "Invalid birth_date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
     
     if User.objects.filter(username=username).exists():
-        return Response({"error": "Kullanıcı adı mevcut. Farklı bir kullanıcı adı deneyin."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Username already exists. Please choose a different username."}, status=status.HTTP_400_BAD_REQUEST)
     if User.objects.filter(email=email).exists():
-        return Response({"error": "Bu e-mail daha önce kullanılmış. Lütfen farklı bir e-mail adresi ile kayıt olun."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "This email is already in use. Please register with a different email address."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         with transaction.atomic():
-            # User kaydı
+            # User registration
             user = User.objects.create_user(
                 username=username,
                 email=email,
@@ -152,7 +152,7 @@ def signup(request):
                 is_active=False,
             )
 
-            # UserProfile kaydı
+            # UserProfile creation
             user_profile = UserProfile.objects.create(
                 user=user,
                 username=username,
@@ -197,9 +197,9 @@ def forgot_password(request):
     user_profile.otp = otp
     user_profile.otp_expiry = otp_expiry
     user_profile.save()
-    
-    send_email_notification("Parolanızı sıfırlamanız için güvenlik kodu: ", otp, settings.EMAIL_HOST_USER, email)
-    return Response({"detail": "OTP mail adresine gönderildi."}, status=status.HTTP_200_OK)
+
+    send_email_notification("Your password reset code: ", otp, settings.EMAIL_HOST_USER, email)
+    return Response({"detail": "OTP has been sent to your email address."}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 def reset_password(request):

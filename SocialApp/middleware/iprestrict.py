@@ -1,7 +1,7 @@
 from django.http import HttpResponseForbidden
 
 class BlockExactApiPathMiddleware:
-    ALLOWED_IPS = ['31.155.140.45','185.87.253.121']  # Replace with allowed IP(s)
+    ALLOWED_IPS = ['8.8.8.8','1.1.1.1']  # Replace with allowed IP(s)
 
     def __init__(self, get_response):
         self.get_response = get_response

@@ -35,17 +35,17 @@ SECRET_KEY = env('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-EMAIL_HOST = 'nano.promail.com.tr'
+EMAIL_HOST = ''
 EMAIL_PORT = 465
-EMAIL_HOST_USER = 'info@socialrate.net'
-EMAIL_HOST_PASSWORD = 'Fevzi.12345'
+EMAIL_HOST_USER = ''
+EMAIL_HOST_PASSWORD = ''
 EMAIL_USE_SSL = True
 EMAIL_USE_TLS = False
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 
 
-ALLOWED_HOSTS = ['185.87.253.121','socialrate.net','localhost','ubasoft.net',"127.0.0.1"]
+ALLOWED_HOSTS = []
 MAX_OTP_TRY = 3
 
 # Application definition
@@ -125,10 +125,10 @@ ROOT_URLCONF = 'SocialApp.urls'
 
 
 CSP_INCLUDE_NONCE_IN = ['script-src']
-CSP_CONNECT_SRC = ("'self'", "https://socialrate.net", "https://ubasoft.net")  # Allow both frontend and backend
+CSP_CONNECT_SRC = ("'self'", "", "")  # Allow both frontend and backend
 CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "'unsafe-inline'")
 CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com")  # Allow font loading
-CSP_SCRIPT_SRC = ("'self'", "https://ubasoft.net", "https://socialrate.net")  # Allow frontend and backend scripts
+CSP_SCRIPT_SRC = ("'self'", "", "")  # Allow frontend and backend scripts
 
 
 
@@ -154,23 +154,23 @@ WSGI_APPLICATION = 'SocialApp.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'socialrcore',
-	'USER': 'admin',
-	'PASSWORD': env('DB_PASSWORD'),
-	'HOST':'localhost',
-	'PORT':'5432'
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#         'NAME': '',
+# 	'USER': 'admin',
+# 	'PASSWORD': env('DB_PASSWORD'),
+# 	'HOST':'localhost',
+# 	'PORT':'5432'
+#     }
+# }
 
 
 # Password validation
@@ -225,8 +225,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOWED_ORIGINS = [
    "http://localhost:4200",
-   "https://ubasoft.net",
-   "http://ubasoft.net"
 ]
 
 CORS_ALLOW_HEADERS = [

@@ -10,7 +10,7 @@ schema_view = get_schema_view(
     openapi.Info(
         title="SocialApp API",
         default_version='v1',
-        description="SocialApp için API dökümantasyonu",
+        description="API documentation for SocialApp",
         terms_of_service="https://www.google.com/policies/terms/",
         contact=openapi.Contact(email="contact@socialapp.local"),
         license=openapi.License(name="BSD License"),

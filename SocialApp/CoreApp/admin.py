@@ -77,13 +77,13 @@ class UserProfileAdmin(admin.ModelAdmin):
         'average_score',
     )
 
-    # Arama yapılabilir alanlar
+    # Field for searching
     search_fields = ('username', 'email', 'phone_number', 'first_name', 'last_name')
 
-    # Filtreleme yapılabilir alanlar
+    # Field for filtering
     list_filter = ('is_active', 'created_at')
 
-    # Profil resmi önizleme
+    # Profile picture preview
     def profile_picture_preview(self, obj):
         if obj.profile_picture:
             return format_html(
@@ -94,7 +94,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 
     profile_picture_preview.short_description = "Profile Picture"
 
-    # Ortalama skor hesaplama
+    # Average score calculation
     def average_score(self, obj):
         stats = obj.get_user_average_score()
         return stats.get('average_score', 0)
@@ -102,7 +102,7 @@ class UserProfileAdmin(admin.ModelAdmin):
     average_score.short_description = "Average Score"
     readonly_fields = ('average_score', 'created_at')
 
-    # Detay sayfasında gösterilecek alanlar
+    # Fields to be displayed in the detail view
     fieldsets = (
         ("Basic Information", {
             'fields': ('username', 'email', 'phone_number', 'first_name', 'last_name', 'birth_date', 'bio')
@@ -126,13 +126,13 @@ class UserProfileAdmin(admin.ModelAdmin):
 
     form = UserProfileForm
 
-    # İlgili nesnelerin admin panelinde düzenlenmesini sağla
+    # Allow editing of related objects in the admin panel
     filter_horizontal = ('followers', 'following')
 
-    # Otomatik güncellemeleri engelleme seçenekleri
+    # Options to prevent automatic updates
     readonly_fields = ('created_at',)
 
-    # İsteğe bağlı aksiyonlar ekle
+    # Optional actions
     actions = ["activate_users", "deactivate_users"]
 
     def activate_users(self, request, queryset):
@@ -149,7 +149,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 
     deactivate_users.short_description = "Deactivate selected users"
 
-    # Admin panelinde toplam sayılar
+    # total points in the admin panel
     def changelist_view(self, request, extra_context=None):
         """Ekstra bağlam ekle."""
         extra_context = extra_context or {}
@@ -171,23 +171,23 @@ class FollowAdmin(admin.ModelAdmin):
     Follow modeli için admin paneli özelleştirmesi.
     """
 
-    # Listede gösterilecek alanlar
+    # Fields to be displayed in the list view
     list_display = ('id', 'follower_username', 'following_username', 'created_at')
 
-    # Arama yapılabilir alanlar
+    # Field for searching
     search_fields = ('follower__username', 'following__username')
 
-    # Filtreleme yapılabilir alanlar
+    # Field for filtering
     list_filter = ('created_at',)
 
-    # Detay sayfasında gösterilecek alanlar
+    # Fields to be displayed in the detail view
     fieldsets = (
         ("Follow Details", {
             'fields': ('follower', 'following', 'created_at')
         }),
     )
 
-    # Sadece okunabilir alanlar
+    # Read-only fields
     readonly_fields = ('created_at',)
 
     
@@ -195,10 +195,10 @@ class FollowAdmin(admin.ModelAdmin):
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
     """
-    Comment modeli için admin paneli özelleştirmesi.
+    Admin panel customization for the Comment model.
     """
 
-    # Listede gösterilecek alanlar
+    # Fields to be displayed in the list view
     list_display = (
         'id',
         'user_profile',
@@ -211,16 +211,16 @@ class CommentAdmin(admin.ModelAdmin):
         'created_at',
     )
 
-    # Arama yapılabilir alanlar
+    # Field for searching
     search_fields = ('user_profile__username', 'profile_commented_on__username', 'content')
 
-    # Filtreleme yapılabilir alanlar
+    # Field for filtering
     list_filter = ('category', 'is_positive', 'is_anonymous', 'created_at')
 
-    # İlgili nesnelerin admin panelinde düzenlenmesini sağla
+    # Allow editing of related objects in the admin panel
     filter_horizontal = ('likes', 'dislikes')
 
-    # Detay sayfasında gösterilecek alanlar
+    # Fields to be displayed in the detail view
     fieldsets = (
         ("Comment Details", {
             'fields': (
@@ -239,19 +239,19 @@ class CommentAdmin(admin.ModelAdmin):
         }),
     )
 
-    # Sadece okunabilir alanlar
+    # Read-only fields
     readonly_fields = ('created_at',)
 
     
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name']  # Admin panelinde hangi alanların görüneceğini seçin
-    search_fields = ['name']  # Arama yapılabilir alanlar
+    list_display = ['id', 'name']  # Fields to be displayed in the admin panel
+    search_fields = ['name']  # Field for searching
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
-        queryset = queryset.order_by('name')  # İsim sırasına göre sıralama
+        queryset = queryset.order_by('name')  # Order by name
         return queryset
 
 @admin.register(UserInquiry)
@@ -319,36 +319,36 @@ class ReportAdmin(admin.ModelAdmin):
             return f"{obj.reported_comment.content[:50]}..."
         return "N/A"
 
-    reported_comment_content.short_description = "Rapor edilen yorum içeriği"
+    reported_comment_content.short_description = "Reported comment content"
 
     def reported_comment_profile(self, obj):
         if obj.reported_comment and obj.reported_comment.user_profile:
             return f"Profile of {obj.reported_comment.user_profile.user.username}"
         return "N/A"
 
-    reported_comment_profile.short_description = "Yorumun sahibi"
+    reported_comment_profile.short_description = "Owner of the reported comment"
 
     def reported_profile(self, obj):
         if obj.reported_profile:
             return f"Profile of {obj.reported_profile.user.username}"
         return "N/A"
 
-    reported_profile.short_description = "Rapor edilen Profil"
+    reported_profile.short_description = "Reported profile"
 
     def commented_on_profile(self, obj):
         if obj.reported_comment and obj.reported_comment.profile_commented_on:
             return f"Profile of {obj.reported_comment.profile_commented_on.user.username}"
         return "N/A"
 
-    commented_on_profile.short_description = "Yorumun yapıldığı profil"
+    commented_on_profile.short_description = "Profile of the commented-on post"
 
     def report_type_display(self, obj):
         return obj.get_report_type_display()
 
-    report_type_display.short_description = "Rapor Türü"
+    report_type_display.short_description = "Report Type"
 
     fieldsets = (
-        ("Rapor Bilgileri", {
+        ("Report Information", {
             'fields': (
                 'user_reporting',
                 'report_type',
@@ -377,8 +377,8 @@ class ReportAdmin(admin.ModelAdmin):
                 report.reported_comment.delete()
                 self.message_user(request, f"Comment from report ID {report.id} deleted.")
         return None
-    
-    delete_reported_comment.short_description = "Rapor edilen yorumu sil"
+
+    delete_reported_comment.short_description = "Delete reported comment"
 
     def delete_reported_comment_action(self, request, object_id):
         """

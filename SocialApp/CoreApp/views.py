@@ -58,13 +58,13 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 
         # Only the owner or an admin can delete
         if instance.user != request.user and not request.user.is_staff:
-            return Response({'detail': 'Bu profili silmek için gerekli yetkiye sahip değilsiniz.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'detail': 'You do not have permission to delete this profile.'}, status=status.HTTP_403_FORBIDDEN)
 
         with transaction.atomic():
             instance.delete()          # Core_Users (UserProfile)
             instance.user.delete()     # auth_user (User)
 
-        return Response({'detail': 'Kullanıcı profili başarılı şekilde silindi.'}, status=status.HTTP_200_OK)
+        return Response({'detail': 'User profile deleted successfully.'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def comments(self, request, pk=None):
@@ -105,12 +105,12 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     def update_profile(self, request):
         """Update the authenticated user's profile information."""
         try:
-            # Kullanıcı profilini al (Core_Users table)
+            # Get the user profile (Core_Users table)
             user_profile = UserProfile.objects.get(user=request.user)
         except UserProfile.DoesNotExist:
             return Response({"detail": "User profile not found."}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Bütünlüğü korumak için aktarım başlatma
+
+        # Start a transaction to maintain integrity
         with transaction.atomic():
             # Update `auth_user` (User model)
             user_auth = request.user
@@ -151,22 +151,22 @@ class CommentCreateView(APIView):
 
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            raise AuthenticationFailed('Kullanıcı giriş yapmadı.')
+            raise AuthenticationFailed('The user is not authenticated.')
 
         try:
             user_profile = request.user.profile  # Ensure the user has a profile
         except AttributeError:
-            raise AuthenticationFailed('Böyle bir kullanıcı yok.')
+            raise AuthenticationFailed('User profile not found.')
 
         # Get the profile being commented on
         try:
             profile_commented_on = UserProfile.objects.get(username=request.data['profile_commented_on'])
         except UserProfile.DoesNotExist:
-            raise ValidationError('Bu kullanıcıya ait bir profil bulunamadı.')
+            raise ValidationError('Profile not found for this user.')
 
         content = request.data.get('content', None)
         if not content:
-            raise ValidationError('Yorum Girmelisiniz.')
+            raise ValidationError('You must enter a comment.')
 
         # Get and validate the category scores
         category_scores = request.data.get('category_scores', {})
@@ -174,15 +174,15 @@ class CommentCreateView(APIView):
             raise ValidationError('Category scores must be a dictionary.')
 
         # Check if all required categories are provided by their IDs
-        required_category_ids = [1, 2, 3]  # IDs for Intelligence, Appearance, and Relationship
+        required_category_ids = [1, 2, 3]  
         for category_id in required_category_ids:
             if str(category_id) not in category_scores:
-                raise ValidationError(f'"{category_id}" için puan girmeniz gerekli.')
+                raise ValidationError(f'You must enter a score for "{category_id}".')
 
         # Validate the scores
         for category_id, score in category_scores.items():
             if not isinstance(score, int) or score < 1 or score > 10:
-                raise ValidationError(f'Category ID "{category_id}". 1-10 arasında bir puan vermelisiniz.')
+                raise ValidationError(f'Category ID "{category_id}": You must give a score between 1-10.')
 
         # Update the JSON field for the profile being commented on
         for category_id, score in category_scores.items():
@@ -230,22 +230,22 @@ class CommentViewSet(viewsets.ModelViewSet):
 
         # Ensure the user is authenticated
         if not request.user.is_authenticated:
-            raise AuthenticationFailed('Kullanıcı giriş yapmadı.')
+            raise AuthenticationFailed('The user is not authenticated.')
 
         try:
             user_profile = request.user.profile  # Ensure the user has a profile
         except AttributeError:
-            raise AuthenticationFailed('Böyle bir kullanıcı yok.')
+            raise AuthenticationFailed('User profile not found.')
 
         # Get the profile being commented on
         try:
             profile_commented_on = UserProfile.objects.get(username=request.data['profile_commented_on'])
         except UserProfile.DoesNotExist:
-            raise ValidationError('Bu kullanıcıya ait bir profil bulunamadı.')
+            raise ValidationError('Profile not found for this user.')
 
         content = request.data.get('content', None)
         if not content:
-            raise ValidationError('Yorum Girmelisiniz.')
+            raise ValidationError('You must enter a comment.')
 
         # Get and validate the category scores
         category_scores = request.data.get('category_scores', {})
@@ -253,15 +253,15 @@ class CommentViewSet(viewsets.ModelViewSet):
             raise ValidationError('Category scores must be a dictionary.')
 
         # Check if all required categories are provided by their IDs
-        required_category_ids = [1, 2, 3]  # IDs for Intelligence, Appearance, and Relationship
+        required_category_ids = [1, 2, 3]  
         for category_id in required_category_ids:
             if str(category_id) not in category_scores:
-                raise ValidationError(f'"{category_id}" için puan girmeniz gerekli.')
+                raise ValidationError(f'You must enter a score for "{category_id}".')
 
         # Validate the scores
         for category_id, score in category_scores.items():
             if not isinstance(score, int) or score < 1 or score > 10:
-                raise ValidationError(f'Category ID "{category_id}". 1-10 arasında bir puan vermelisiniz.')
+                raise ValidationError(f'Category ID "{category_id}": You must give a score between 1-10.')
 
         # Update the JSON field for the profile being commented on
         for category_id, score in category_scores.items():
@@ -317,9 +317,8 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def likes_dislikes(self, request, pk=None) :
-        
-        ##Performansı arttırma ve anlık request sayısını azaltmak için batch request entegrasyonu yapıldı. 
-        ##İlerleyen zamanlarda genişleme sağlaması açısından kod esnek bırakıldı.
+
+        ##Batch request optimization to improve performance
         if 'ids' in request.query_params:
             comment_ids = [int(id) for id in request.query_params['ids'].split(',')]
             comments = Comment.objects.filter(id__in=comment_ids)
@@ -375,25 +374,26 @@ class ToggleLikeCommentView(APIView):
         comment = get_object_or_404(Comment, id=comment_id)
         user_profile = request.user.profile  # Şu anki kullanıcı profili
 
-        # Kendi yorumunu beğenmeye çalışıyorsa hata döndür
-        
+        # return error if the user tries to like their own comment
+        if comment.user_profile == user_profile:
+            raise ValidationError("You cannot like your own comment.")
 
-        # Kullanıcı dislike yapmışsa önce dislike'ı kaldır
+        # remove dislike if exists
         if user_profile in comment.dislikes.all():
             comment.dislikes.remove(user_profile)
 
-        # Like işlemi: toggle (ekle veya çıkar)
+        # Like operation
         if user_profile in comment.likes.all():
-            comment.likes.remove(user_profile)  # Like'ı geri al
+            comment.likes.remove(user_profile)  # Remove like
             action = "Like removed successfully."
         else:
-            comment.likes.add(user_profile)  # Like ekle
+            comment.likes.add(user_profile)  # Add like
             action = "Like added successfully."
 
         return Response({"detail": action}, status=status.HTTP_200_OK)
 
     
-#Yorum dislike işlemleri
+#Comment dislike
 class ToggleDislikeCommentView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [CustomRateLimiter]
@@ -401,74 +401,48 @@ class ToggleDislikeCommentView(APIView):
     def post(self, request, comment_id, *args, **kwargs):
         # Yorumu bul
         comment = get_object_or_404(Comment, id=comment_id)
-        user_profile = request.user.profile  # Şu anki kullanıcı profili
+        user_profile = request.user.profile  # current user profile
 
-        # Kendi yorumunu dislike yapmaya çalışıyorsa hata döndür
-        
+        # Return error if the user tries to dislike their own comment
+        if comment.user_profile == user_profile:
+            raise ValidationError("You cannot dislike your own comment.")
 
-        # Kullanıcı like yapmışsa önce like'ı kaldır
+        # Remove like if exists
         if user_profile in comment.likes.all():
             comment.likes.remove(user_profile)
 
-        # Dislike işlemi: toggle (ekle veya çıkar)
+        # Dislike operation: toggle (add or remove)
         if user_profile in comment.dislikes.all():
-            comment.dislikes.remove(user_profile)  # Dislike'ı geri al
+            comment.dislikes.remove(user_profile)  # Remove dislike
             action = "Dislike removed successfully."
         else:
-            comment.dislikes.add(user_profile)  # Dislike ekle
+            comment.dislikes.add(user_profile)  # Add dislike
             action = "Dislike added successfully."
 
         return Response({"detail": action}, status=status.HTTP_200_OK)
 
-##Deprecated
-# class CommentLikesDislikesView(APIView):  # Hem beğenenleri hem de beğenmeyenleri döndürür. 
-#     permission_classes = [IsAuthenticated]
-#     throttle_classes = [TokenRateLimiter]
-#     def get(self, request, comment_id, *args, **kwargs):
-#         # Yorumu bul
-#         comment = get_object_or_404(Comment, id=comment_id)
-#         user_profile = request.user.profile  # Şu anki kullanıcı profili
 
-#         # Beğenen ve beğenmeyen kullanıcıları sadece gerekli alanlarla al
-#         likes = comment.likes.values('id', 'username', 'first_name', 'last_name')
-#         dislikes = comment.dislikes.values('id', 'username', 'first_name', 'last_name')
-
-#         # Kullanıcının mevcut durumu
-#         user_has_liked = comment.likes.filter(id=user_profile.id).exists()
-#         user_has_disliked = comment.dislikes.filter(id=user_profile.id).exists()
-
-#         return Response({
-#             "likes": list(likes),
-#             "dislikes": list(dislikes),
-#             "user_action": {
-#                 "has_liked": user_has_liked,
-#                 "has_disliked": user_has_disliked
-#             }
-#         }, status=status.HTTP_200_OK)
-        
-
-
-##Anasayfaya takip edilen kullanıcılara yapılan son yorumları getir
+##Bring the latest comments from followed users
 class LatestCommentsView(GenericAPIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [TokenRateLimiter]
     serializer_class = CommentSerializer
     
     def get(self, request):
-        # Kullanıcının profilini al
+        # Fetch user profile
         user_profile = request.user.profile
-        
-        # Kullanıcının takip ettiği kişilerin yorumlarını al
+
+        # Fetch comments from followed users
         followed_profiles = user_profile.following.all()
-        
-        # Takip edilen kişilerin son yorumlarını al
+
+        # Fetch latest comments from followed users
         comments = Comment.objects.filter(profile_commented_on__in=followed_profiles).order_by('-created_at')
         
         paginator = PageNumberPagination()
         paginator.page_size = 5
         paginated_comments = paginator.paginate_queryset(comments, request)
-        
-        # Yorumları serileştir
+
+        # Serialize comments
         comment_serializer = self.get_serializer(paginated_comments, many=True)
         return paginator.get_paginated_response(comment_serializer.data)
         
@@ -480,22 +454,22 @@ class FollowToggleView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, username, *args, **kwargs):
-        # Takip edilecek kullanıcıyı bul
+        # Find the user to follow
         target_user = get_object_or_404(UserProfile, username=username)
         current_user_profile = request.user.profile
 
-        # Kullanıcının kendisini takip etmesini engelle
+        # Prevent the user from following themselves
         if target_user == current_user_profile:
             return Response({"detail": "You cannot follow yourself."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Kullanıcıyı takip ediyor mu kontrol et
+        # Check if the user is already following
         if target_user in current_user_profile.following.all():
-            # Takibi bırak
+            # Unfollow
             current_user_profile.following.remove(target_user)
             target_user.followers.remove(current_user_profile)
             message = "You have unfollowed this user."
         else:
-            # Kullanıcıyı takip et
+            # Follow the user
             current_user_profile.following.add(target_user)
             target_user.followers.add(current_user_profile)
             message = "You are now following this user."
@@ -505,14 +479,14 @@ class FollowToggleView(APIView):
 
 class UserProfileSearchView(GenericAPIView):
     """
-    Kullanıcı adı, isim, soyisim veya telefon numarası ile arama yapar ve sonuçları sayfalayarak döner.
+    Perform a search for user profiles based on username, first name, last name, or phone number and return paginated results.
     """
 
     throttle_classes = [UserRateThrottle]
     serializer_class = UserProfileSerializer
 
     def get(self, request, *args, **kwargs):
-        query = request.query_params.get('q', '')  # Arama kelimesi
+        query = request.query_params.get('q', '')  # Search query
         if not query:
             return Response({"detail": "Search query parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -535,15 +509,15 @@ class UserProfileSearchView(GenericAPIView):
         # Apply the filter to the UserProfile model
         profiles = UserProfile.objects.filter(query_filter).order_by('id')
 
-        # Sayfalama
+        # Pagination
         paginator = PageNumberPagination()
-        paginator.page_size = 20  # Her sayfada 20 sonuç
+        paginator.page_size = 20  # 20 results per page
         paginated_profiles = paginator.paginate_queryset(profiles, request)
 
-        # Sonuçları serileştir
+        # Serialize results
         serializer = self.get_serializer(paginated_profiles, many=True)
 
-        # Sayfalanmış sonuçları döndür
+        # Return paginated results
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -565,12 +539,12 @@ class UserProfileDetails(viewsets.ModelViewSet):
             return Response({"detail": "Username query parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Aranan kullanıcıyı bul
+            # Find the user being searched for
             user_profile = UserProfile.objects.get(username=username)
         except UserProfile.DoesNotExist:
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Kullanıcıyı serileştir ve döndür
+
+        # Serialize the user and return
         serializer = self.get_serializer(user_profile)
         return Response(serializer.data)
     
@@ -582,12 +556,12 @@ class UserProfileDetails(viewsets.ModelViewSet):
             return Response({"detail": "Username query parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Aranan kullanıcıyı bul
+            # Find the user being searched for
             user_profile = UserProfile.objects.get(username=username)
         except UserProfile.DoesNotExist:
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Kullanıcıyı serileştir ve döndür
+
+        # Serialize the user and return
         serializer = UserUpdateSerializer(user_profile)
         return Response(serializer.data)
     
@@ -607,7 +581,7 @@ class UserProfileDetails(viewsets.ModelViewSet):
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
         paginator = PageNumberPagination()
-        paginator.page_size = 20  # Her sayfada 20 sonuç
+        paginator.page_size = 20  # 20 results per page
         paginated_followers = paginator.paginate_queryset(followers, request, view=self)
 
         if paginated_followers is None:
@@ -632,12 +606,12 @@ class UserProfileDetails(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def following(self,request):
-        """İlgili kullanıcının takip ettiklerini getir"""
+        """Get the users that the specified user is following."""
         username = request.query_params.get('username',None)
         if username is None:
             return Response({"detail": "Username query parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Giriş yapan kullanıcı ile sorgulanan kullanıcının aynı olup olmadığını kontrol et
+
+        # Check if the logged-in user is the same as the user being queried
         if username != request.user.username:
             return Response(
                 {"detail": "You are not authorized to view other users' followers."}, 
@@ -645,17 +619,17 @@ class UserProfileDetails(viewsets.ModelViewSet):
             )
         
         try:
-            # Aranan kullanıcıyı bul
+            # Find the user being searched for
             user_profile = UserProfile.objects.get(username=username)
             followees = user_profile.following.all()
         except UserProfile.DoesNotExist:
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
         
         paginator = PageNumberPagination()
-        paginator.page_size = 20  # Her sayfada 20 sonuç
+        paginator.page_size = 20  # 20 results per page
         paginated_followees = paginator.paginate_queryset(followees, request, view=self)
-        
-        # Kullanıcıyı serileştir ve döndür
+
+        # Serialize the user and return
         if paginated_followees is None:
             return Response({"detail": "Pagination did not return any results."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -677,22 +651,22 @@ class UserProfileDetails(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def comment_stats(self, request):
-        """Kullanıcı için yorum istatistiklerini ve ortalama puanı getir"""
+        """Get the comment statistics and average score for the user."""
         username = request.query_params.get('username', None)
         if username is None:
             return Response({"detail": "Username query parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Kullanıcıyı getir
+            # Find the user being searched for
             user_profile = UserProfile.objects.get(username=username)
         except UserProfile.DoesNotExist:
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Yorum istatistiklerini hesapla
+        # Calculate comment statistics
         comment_stats = user_profile.get_category_comment_stats()
         user_average_score = user_profile.get_user_average_score()  # Calculate average score
 
-        # İstatistikleri döndür
+        # Return statistics
         return Response({
             "comment_stats": comment_stats,
             "average_score": user_average_score['average_score']
@@ -709,21 +683,21 @@ class OTPViewSet(viewsets.ModelViewSet):
     @action(detail=True,methods=['PATCH'])
     def verify_otp(self,request,pk=None):
         instance = self.get_object()
-        # Kullanıcı doğrulama
+        # User verification
         # if instance.user != request.user:
-        #     raise PermissionDenied("Bu işlem için yetkiniz yok.")
+        #     raise PermissionDenied("You do not have permission for this action.")
         if(
             not instance.is_active
             and instance.otp == request.data.get('otp')
             and instance.otp_expiry
             and timezone.now() < instance.otp_expiry
         ):
-            # Auth_user tablosunu günceller
-            user = instance.user  
+            # Update the Auth_user table
+            user = instance.user
             user.is_active = True
             user.save()
-            
-            # Core_User tablosunu günceller
+
+            # Update the Core_User table
             instance.is_active = True
             instance.otp_expiry = None
             instance.max_otp_try = settings.MAX_OTP_TRY
@@ -741,11 +715,11 @@ class OTPViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         
         # if instance.user != request.user:
-        #     raise PermissionDenied("Bu işlem için yetkiniz yok.")
-        
+        #     raise PermissionDenied("You do not have permission for this action.")
+
         if int(instance.max_otp_try) == 0 and timezone.now() < instance.otp_max_out:
-            return Response({"detail": "Doğrulama hakkınız bitti. 1 saat sonra tekrar deneyin"}, status=status.HTTP_400_BAD_REQUEST)
-         
+            return Response({"detail": "Your verification attempts have expired. Please try again in 1 hour."}, status=status.HTTP_400_BAD_REQUEST)
+
         otp = random.randint(100000,999999)
         otp_expiry = timezone.now() + timedelta(minutes=5)
         max_otp_try = int(instance.max_otp_try)-1
@@ -765,8 +739,8 @@ class OTPViewSet(viewsets.ModelViewSet):
         instance.save()
         # send_sms_otp(instance.phone_number, otp)
         send_email_notification("Activate your Account", otp, settings.EMAIL_HOST_USER, instance.email)
-        return Response({"detail": "Yeni OTP kodu gönderildi."}, status=status.HTTP_200_OK)
- 
+        return Response({"detail": "A new OTP code has been sent."}, status=status.HTTP_200_OK)
+
 
 class ReportView(APIView):
     permission_classes = [IsAuthenticated]
