@@ -13,8 +13,6 @@ This project is designed to provide structured peer feedback, where categories (
 
 📊 Aggregated Scores – Each user’s profile displays average ratings across categories.
 
-📱 Responsive UI – Works smoothly on desktop and mobile.
-
 🛠️ Django Admin Panel – Full control over users, categories, and ratings.
 
 📂 Project Structure
