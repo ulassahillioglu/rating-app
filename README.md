@@ -15,7 +15,7 @@ This project is designed to provide structured peer feedback, where categories (
 
 🛠️ Django Admin Panel – Full control over users, categories, and ratings.
 
-´´´bash
+```bash
 📂 Project Structure
 project_root/
 │
@@ -25,7 +25,7 @@ project_root/
 ├── static/           # Static assets (CSS, JS, images)
 ├── manage.py         # Django project manager
 └── requirements.txt  # Dependencies
-´´´
+```
 ⚙️ Installation
 1. Clone the repository
 git clone https://github.com/your-username/your-new-repo.git
